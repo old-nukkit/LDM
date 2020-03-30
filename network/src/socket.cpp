@@ -1,8 +1,8 @@
 #include "socket.hpp"
 
-MainSocket::~MainSocket() = default;
+Socket::~Socket() = default;
 
-MainSocket::MainSocket(const string &host, int port, const bool &ns) : need_ssl(ns), Socket(host, port, need_ssl) {
+Socket::Socket(const string &host, int port, const bool &ns) : need_ssl(ns) {
     memset(&info, 0, sizeof(info));
     info.ai_family = AF_INET;
     info.ai_socktype = SOCK_STREAM;
@@ -29,7 +29,7 @@ MainSocket::MainSocket(const string &host, int port, const bool &ns) : need_ssl(
     }
 }
 
-void MainSocket::connect() {
+void Socket::connect() {
     int conn_res = ::connect(sfd, result->ai_addr, result->ai_addrlen);
     if (conn_res == -1) {
         error_code = errno;
@@ -64,7 +64,7 @@ void MainSocket::connect() {
     }
 }
 
-void MainSocket::write(const char *data, int size) {
+void Socket::write(const char *data, int size) {
     size_t bl = size, bs = 0, b_sent = 0;
     if (need_ssl) {
         while ((b_sent = SSL_write(ssl, data + bs, bl)) != -1) {
@@ -85,7 +85,7 @@ void MainSocket::write(const char *data, int size) {
     }
 }
 
-void MainSocket::read(char *data, int size) {
+void Socket::read(char *data, int size) {
     size_t bl = size, br = 0, b_recv = 0;
     if (need_ssl) {
         while ((b_recv = SSL_read(ssl, data + br, bl)) != -1) {
@@ -106,7 +106,7 @@ void MainSocket::read(char *data, int size) {
     }
 }
 
-void MainSocket::close() {
+void Socket::close() {
     if (sfd < 0)
         return;
 

@@ -1,57 +1,57 @@
 #include "http.hpp"
 
 // Get Method ------------------------------------------------------------------------
-HTTP::Get::Get(string url, const unordered_map<string, string> &header, const unordered_map<string, string> &params, string mp) : _url(std::move(url)) {
-	string protocol, hostname, port, path;
-	handler = dlopen(mp.c_str(), RTLD_LAZY);
-	if (!handler or handler == nullptr) {
-	    throw runtime_error("Cannot load library, handler : "s + dlerror());
-	}
+HTTP::Get::Get() {
+    cout << "Class Get constructed" << endl;
+}
 
-    auto creator = (creator_t ) dlsym(handler, "Socket_create");
-    if (!creator or creator == nullptr) {
-        throw runtime_error("Cannot load Socket_create");
-    }
+void HTTP::Get::start(string url, const unordered_map<string, string> &header, const unordered_map<string, string> &params) {
+    string protocol, hostname, port, path;
+    _url = std::move(url);
 
-	do {
-		if (!this->getHeaderElement("Location").empty()) {
-			this->parseUrl(this->getHeaderElement("Location"), protocol, hostname, port, path);
-			this->closeConnection();
-		} else {
-			this->parseUrl(_url, protocol, hostname, port, path);
-		}
+    do {
+        if (!getHeaderElement("Location").empty()) {
+            parseUrl(getHeaderElement("Location"), protocol, hostname, port, path);
+            closeConnection();
+        } else {
+            parseUrl(_url, protocol, hostname, port, path);
+        }
 
-		if (path[path.length() - 1] != '?')
-			path += '?';
+        if (path[path.length() - 1] != '?')
+            path += '?';
 
-		for (const auto &key : params) {
-			path += key.first;
-			path += "=";
-			path += key.second;
-			path += "&";
-		}
-		path.erase(path.length() - 1);
+        for (const auto &key : params) {
+            path += key.first;
+            path += "=";
+            path += key.second;
+            path += "&";
+        }
+        path.erase(path.length() - 1);
 
-		this->header_req = "GET "s + path + " HTTP/1.1" + "\r\n" +
-			"Host: " + hostname + "\r\n";
+        header_req = "GET "s + path + " HTTP/1.1" + "\r\n" +
+                     "Host: " + hostname + "\r\n";
 
-		for (const auto &key : header) {
-			this->header_req += key.first;
-			this->header_req += ": ";
-			this->header_req += key.second;
-			this->header_req += "\r\n";
-		}
+        for (const auto &key : header) {
+            header_req += key.first;
+            header_req += ": ";
+            header_req += key.second;
+            header_req += "\r\n";
+        }
 
-		this->header_req += "\r\n";
+        header_req += "\r\n";
+        sock = Socket(hostname, stoi(port), (protocol == "https"));
+        sock.connect();
+        sock.write(header_req.c_str(), header_req.length());
 
-        sock = (*creator)(hostname, stoi(port), (protocol == "https")); //this->sock = Socket(hostname, stoi(port), (protocol == "https"));
-		this->sock->connect();
-		this->sock->write(header_req.c_str(), header_req.length());
+        getHeader();
 
-		this->getHeader();
+        cout << header_resp << endl;
+    } while (!getHeaderElement("Location").empty());
+}
 
-		cout << header_resp << endl;
-	} while (!this->getHeaderElement("Location").empty());
+void HTTP::Get::setCallbacks(function<void (*)(float)> *progress_reporter, function<void (*)(int, int)> *download_progress) {
+    prg_rprtr = progress_reporter;
+    dl_prg = download_progress;
 }
 
 void HTTP::Get::parseUrl(string in, string &ptc, string &hn, string &prt, string &pth) {
@@ -101,28 +101,28 @@ void HTTP::Get::getHeader() {
 	vector<string> tmp;
 	vector<char> resp_lines;
 	string kv;
-	this->header_resp.clear();
-	this->resp_header.clear();
+	header_resp.clear();
+	resp_header.clear();
 	tmp.clear();
 	resp_lines.clear();
-	this->resp_header_elmnts.clear();
+	resp_header_elmnts.clear();
 	header_length = 0;
 
 	while (true) {
-		this->sock->read(byte, 1);
-		this->resp_header.emplace_back(byte[0]);
+		sock.read(byte, 1);
+		resp_header.emplace_back(byte[0]);
 		header_length++;
 		if (byte[0] == '\r') {
-			this->sock->read(byte, 1);
-			this->resp_header.emplace_back(byte[0]);
+			sock.read(byte, 1);
+			resp_header.emplace_back(byte[0]);
 			header_length++;
 			if (byte[0] == '\n') {
-				sock->read(byte, 1);
-				this->resp_header.emplace_back(byte[0]);
+				sock.read(byte, 1);
+				resp_header.emplace_back(byte[0]);
 				header_length++;
 				if (byte[0] == '\r') {
-					sock->read(byte, 1);
-					this->resp_header.emplace_back(byte[0]);
+					sock.read(byte, 1);
+					resp_header.emplace_back(byte[0]);
 					header_length++;
 					if (byte[0] == '\n') {
 						break;
@@ -132,12 +132,12 @@ void HTTP::Get::getHeader() {
 		}
 	}
 
-	this->header_resp = resp_header.data();
-	u.replace(this->header_resp, "\r\n", "\n"); // All "\r\n" to "\n"
-	u.replace(this->header_resp, "\n\n", "\n"); // One "\n\n" left from "\r\n\r\n" to "\n"
+	header_resp = resp_header.data();
+	u.replace(header_resp, "\r\n", "\n"); // All "\r\n" to "\n"
+	u.replace(header_resp, "\n\n", "\n"); // One "\n\n" left from "\r\n\r\n" to "\n"
 
 	kv.clear();
-	for (auto c : this->header_resp) {
+	for (auto c : header_resp) {
 		if (c == '\n') {
 			tmp.push_back(kv);
 			kv.clear();
@@ -157,16 +157,28 @@ void HTTP::Get::getHeader() {
 		string first = u.split(line, ":")[0];
 		transform(first.begin(), first.end(), first.begin(), ::tolower);
 		string second = line.substr(line.find(": ") + 2);
-		this->resp_header_elmnts[first] = second;
+		resp_header_elmnts[first] = second;
 	}
+}
+
+void HTTP::Get::getFile(const string &path) {
+    cout << "File ----------------------------------- " << path << endl;
 }
 
 string HTTP::Get::getHeaderElement(const string &elmnt) {
 	string el = elmnt;
 	transform(el.begin(), el.end(), el.begin(), ::tolower);
-	return this->resp_header_elmnts[el];
+	return resp_header_elmnts[el];
 }
 
 void HTTP::Get::closeConnection() {
-    this->sock->close();
+    sock.close();
+}
+
+vector<string> HTTP::Get::getProtocols() {
+    return {"http", "https"};
+}
+
+HTTP::Get::~Get() {
+    cout << "Get class destructed" << endl;
 }

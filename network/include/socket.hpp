@@ -16,39 +16,23 @@
 
 #include <openssl/ssl.h>
 #include <openssl/err.h>
-
-//#include "../../poly.hpp"
-
 using namespace std;
 
 class Socket {
 public:
-    Socket(const std::string &, int, const bool &) {}
+    Socket() = default;
 
-    ~Socket() {}
+    Socket(const string &, int, const bool &);
 
-    virtual void connect() {}
+    ~Socket();
 
-    virtual void read(char *, int) {}
+    void connect();
 
-    virtual void write(const char *, int) {}
+    void read(char *, int);
 
-    virtual void close() {}
-};
+    void write(const char *, int);
 
-class MainSocket : public Socket {
-public:
-    MainSocket(const string &, int, const bool &);
-
-    ~MainSocket();
-
-    virtual void connect();
-
-    virtual void read(char *, int);
-
-    virtual void write(const char *, int);
-
-    virtual void close();
+    void close();
 
 private:
     struct addrinfo info{}, *result{};
@@ -58,14 +42,5 @@ private:
     SSL_CTX *ssl_ctx{};
     SSL *ssl{};
 };
-
-extern "C" Socket *Socket_create(const string &h, int p, const bool &b) {
-    return new MainSocket(h, p, b);
-}
-
-extern "C" void *Socket_destroy(Socket* s) {
-    delete s;
-    return nullptr;
-}
 
 #endif //LDM_SOCKET_HPP

@@ -1,6 +1,3 @@
-cmake_minimum_required(VERSION 3.0)
-
-project("modules")
+include_directories("../network/include")
 
 add_subdirectory("http")
-add_subdirectory("https")
